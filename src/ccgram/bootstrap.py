@@ -61,6 +61,7 @@ logger = structlog.get_logger()
 
 session_monitor: SessionMonitor | None = None
 _status_poll_task: asyncio.Task[None] | None = None
+_hq_notify_task: asyncio.Task[None] | None = None
 _callbacks_wired = False
 
 
@@ -249,6 +250,27 @@ def start_status_polling(application: Application) -> asyncio.Task[None]:
     return _status_poll_task
 
 
+def start_hq_notifier(application: Application) -> asyncio.Task[None] | None:
+    """Spawn the Agent HQ notifier loop when the feature is enabled.
+
+    No-op when Agent HQ is disabled (``CCGRAM_HQ_TOPIC_ID`` unset) or the
+    notifier is turned off (``CCGRAM_HQ_NOTIFY_INTERVAL`` <= 0).
+    """
+    global _hq_notify_task
+
+    if config.hq_topic_id is None or config.hq_notify_interval <= 0:
+        return None
+    # Lazy: the HQ notifier (and the hq handler graph behind it) loads only
+    # when the feature is enabled.
+    from .handlers.hq.notifier import hq_notify_loop
+
+    _hq_notify_task = asyncio.create_task(
+        hq_notify_loop(PTBTelegramClient(application.bot))
+    )
+    _hq_notify_task.add_done_callback(task_done_callback)
+    return _hq_notify_task
+
+
 def start_event_stream(application: Application) -> object | None:
     """Start the push event-stream consumer on event-stream backends (herdr).
 
@@ -287,6 +309,7 @@ async def bootstrap_application(application: Application) -> None:
     await start_session_monitor(application)
     start_status_polling(application)
     start_event_stream(application)
+    start_hq_notifier(application)
 
     # Lazy: main imports bot at top, bot imports bootstrap; hoisting forms
     # main → bot → bootstrap → main on cold import.
@@ -298,7 +321,7 @@ async def bootstrap_application(application: Application) -> None:
 
 async def shutdown_runtime() -> None:
     """Run the post_shutdown teardown sequence."""
-    global _status_poll_task, session_monitor
+    global _status_poll_task, session_monitor, _hq_notify_task
 
     if _status_poll_task is not None:
         _status_poll_task.cancel()
@@ -306,6 +329,13 @@ async def shutdown_runtime() -> None:
             await _status_poll_task
         _status_poll_task = None
         logger.info("Status polling stopped")
+
+    if _hq_notify_task is not None:
+        _hq_notify_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await _hq_notify_task
+        _hq_notify_task = None
+        logger.info("HQ notifier stopped")
 
     if session_monitor is not None:
         session_monitor.stop()
@@ -340,7 +370,7 @@ def reset_for_testing() -> None:
     loud on double registration, and bootstrap caches its own
     ``_callbacks_wired`` flag too.
     """
-    global _callbacks_wired, session_monitor, _status_poll_task
+    global _callbacks_wired, session_monitor, _status_poll_task, _hq_notify_task
 
     # Lazy: each module's _reset_*_for_testing hook is only needed by the
     # test harness; production callers never reach reset_for_testing().
@@ -348,9 +378,17 @@ def reset_for_testing() -> None:
 
     shell_capture._reset_approval_callback_for_testing()
 
+    # Lazy: HQ notifier state only exists when the feature was exercised.
+    from .handlers.hq import notifier as hq_notifier
+
+    if _hq_notify_task is not None:
+        _hq_notify_task.cancel()
+    hq_notifier.reset_for_testing()
+
     _callbacks_wired = False
     session_monitor = None
     _status_poll_task = None
+    _hq_notify_task = None
     clear_active_monitor()
 
     # Stop any event-stream consumer this run started and clear its caches so the

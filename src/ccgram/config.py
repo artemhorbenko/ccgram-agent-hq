@@ -10,6 +10,7 @@ Key class: Config (singleton instantiated as `config`).
 
 import structlog
 import os
+from datetime import time as dt_time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -199,6 +200,35 @@ class Config:
                 ) from e
         else:
             self.hq_topic_id = None
+
+        # HQ notifier: state-change notifications (blocked/done/dead/stale)
+        # posted into the HQ topic. Interval in seconds; 0 disables the
+        # notifier (and the daily digest, which rides the same loop).
+        try:
+            self.hq_notify_interval: float = float(
+                os.getenv("CCGRAM_HQ_NOTIFY_INTERVAL", "30")
+            )
+        except ValueError as e:
+            raise ValueError(
+                f"CCGRAM_HQ_NOTIFY_INTERVAL must be a valid number: {e}"
+            ) from e
+        if self.hq_notify_interval > 0:
+            self.hq_notify_interval = max(5.0, self.hq_notify_interval)
+
+        # Optional daily digest time, local "HH:MM" (empty = disabled).
+        digest_str = os.getenv("CCGRAM_HQ_DIGEST_TIME", "").strip()
+        if digest_str:
+            try:
+                hour_str, minute_str = digest_str.split(":", 1)
+                self.hq_digest_time: dt_time | None = dt_time(
+                    int(hour_str), int(minute_str)
+                )
+            except ValueError as e:
+                raise ValueError(
+                    f"CCGRAM_HQ_DIGEST_TIME must be HH:MM (e.g. 09:00): {e}"
+                ) from e
+        else:
+            self.hq_digest_time = None
 
     def _init_live_view(self) -> None:
         self.live_view_interval: int = max(

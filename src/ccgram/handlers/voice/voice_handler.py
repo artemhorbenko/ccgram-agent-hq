@@ -111,6 +111,50 @@ async def _send_confirm_message(
         context.user_data.setdefault(VOICE_PENDING, {})[key] = text
 
 
+async def transcribe_voice_message(message: Message) -> str | None:
+    """Download and transcribe a voice message, replying on any failure.
+
+    Shared by the per-agent voice flow and the Agent HQ voice-/tell flow.
+    Returns the transcribed text, or None after a user-facing error reply
+    (size limit, missing transcriber, download or transcription failure,
+    empty result).
+    """
+    voice = message.voice
+    if voice is None:
+        return None
+    if voice.file_size is not None and voice.file_size > _MAX_VOICE_SIZE:
+        size_mb = voice.file_size / (1024 * 1024)
+        await safe_reply(
+            message,
+            f"❌ Voice message too large ({size_mb:.1f} MB). Maximum 25 MB.",
+        )
+        return None
+
+    transcriber = await _get_transcriber_or_reply(message)
+    if transcriber is None:
+        return None
+
+    audio_bytes = await _download_voice(message, voice.file_id)
+    if audio_bytes is None:
+        return None
+
+    await message.get_bot().send_chat_action(
+        chat_id=message.chat.id,
+        message_thread_id=message.message_thread_id,
+        action=ChatAction.TYPING,
+    )
+
+    result = await _transcribe_audio(message, transcriber, audio_bytes)
+    if result is None:
+        return None
+
+    if not result.text.strip():
+        await safe_reply(message, "⚠️ Could not transcribe audio (empty result).")
+        return None
+
+    return result.text
+
+
 async def handle_voice_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -125,6 +169,16 @@ async def handle_voice_message(
         return
 
     thread_id = get_thread_id(update)
+
+    # Agent HQ control-plane topic: voice becomes a /tell with a structured
+    # target + instruction confirmation instead of the bound-window flow.
+    # Lazy: hq imports handlers.commands (forward); keep it off this module's load path.
+    from ..hq import handle_hq_voice, is_hq_topic
+
+    if is_hq_topic(thread_id):
+        await handle_hq_voice(update, context)
+        return
+
     window_id = thread_router.resolve_window_for_thread(user.id, thread_id)
     if not window_id:
         await safe_reply(
@@ -135,35 +189,8 @@ async def handle_voice_message(
         )
         return
 
-    voice = message.voice
-    if voice.file_size is not None and voice.file_size > _MAX_VOICE_SIZE:
-        size_mb = voice.file_size / (1024 * 1024)
-        await safe_reply(
-            message,
-            f"❌ Voice message too large ({size_mb:.1f} MB). Maximum 25 MB.",
-        )
+    text = await transcribe_voice_message(message)
+    if text is None:
         return
 
-    transcriber = await _get_transcriber_or_reply(message)
-    if transcriber is None:
-        return
-
-    audio_bytes = await _download_voice(message, voice.file_id)
-    if audio_bytes is None:
-        return
-
-    await message.get_bot().send_chat_action(
-        chat_id=message.chat.id,
-        message_thread_id=message.message_thread_id,
-        action=ChatAction.TYPING,
-    )
-
-    result = await _transcribe_audio(message, transcriber, audio_bytes)
-    if result is None:
-        return
-
-    if not result.text.strip():
-        await safe_reply(message, "⚠️ Could not transcribe audio (empty result).")
-        return
-
-    await _send_confirm_message(message, result.text, context)
+    await _send_confirm_message(message, text, context)

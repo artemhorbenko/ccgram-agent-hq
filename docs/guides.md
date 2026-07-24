@@ -193,6 +193,8 @@ All settings accept both CLI flags and environment variables. CLI flags take pre
 | `CCGRAM_TTS_MODEL`                                   | `gpt-4o-mini-tts`              | OpenAI TTS model (only used when `CCGRAM_TTS_PROVIDER=openai`)                                       |
 | `CCGRAM_TTS_API_KEY`                                 | _(empty)_                      | API key for OpenAI TTS; falls back to `OPENAI_API_KEY`                                               |
 | `CCGRAM_HQ_TOPIC_ID`                                 | _(disabled)_                   | Thread ID of the Agent HQ control-plane topic (`/agents`, `/brief`, `/needs_you`, `/tell`)           |
+| `CCGRAM_HQ_NOTIFY_INTERVAL`                          | `30`                           | HQ notifier poll interval in seconds (min 5; `0` disables notifications and the digest)              |
+| `CCGRAM_HQ_DIGEST_TIME`                              | _(disabled)_                   | Local `HH:MM` to post a daily `/brief` digest into the HQ topic                                      |
 
 ## Agent HQ (cross-session control plane)
 
@@ -210,6 +212,14 @@ Inside the HQ topic:
 | `/hq_status`                | Registry health: session counts by state, multiplexer backend, audit log path          |
 
 Sessions are sorted needs-attention → working → done → idle. Terminal excerpts are passed through the same secret-redaction filter as the shell provider, and every HQ action is appended to `~/.ccgram/hq_audit.jsonl`. Outside the HQ topic these command names behave exactly as before (forwarded to the topic's provider), so the feature is inert when unconfigured. Plain text sent in the HQ topic shows the command help instead of starting the session-binding flow.
+
+### Voice /tell
+
+With voice transcription configured (`CCGRAM_WHISPER_PROVIDER`), a voice note in the HQ topic becomes a directed instruction: the transcription is parsed deterministically — a leading "tell/скажи/передай" is dropped, the first 1–3 words are matched against your topic names, and the rest is the instruction. You get a structured preview (`Agent: wallet / Instruction: run the checks`) and nothing is sent until you tap **Send**. If no target can be identified, the transcription is shown with a hint to use `/tell`.
+
+### Notifications and daily digest
+
+When Agent HQ is enabled, a background notifier (every `CCGRAM_HQ_NOTIFY_INTERVAL` seconds, default 30) posts into the HQ topic when a session **transitions** into a state that needs you: blocked/waiting, done, dead, or stale (no activity for 30 min while working). One message per transition — calm states never notify, restarts don't re-announce existing states, and a session that recovers and blocks again notifies again. Set `CCGRAM_HQ_DIGEST_TIME=09:00` to additionally receive the `/brief` view once per day at that (local) time. Notifications start flowing after you have used the HQ topic at least once (that's how the bot learns the topic's chat ID).
 
 ## Topic Emoji Color Scheme
 

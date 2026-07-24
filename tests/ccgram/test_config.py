@@ -223,3 +223,48 @@ class TestPollingConfig:
         assert getattr(Config(), attr) == expected
         monkeypatch.setenv(env_var, clamp_str)
         assert getattr(Config(), attr) == clamped
+
+
+@pytest.mark.usefixtures("_base_env")
+class TestHqConfig:
+    def test_hq_disabled_by_default(self):
+        cfg = Config()
+        assert cfg.hq_topic_id is None
+        assert cfg.hq_notify_interval == 30.0
+        assert cfg.hq_digest_time is None
+
+    def test_hq_topic_id_parsed_as_int(self, monkeypatch):
+        monkeypatch.setenv("CCGRAM_HQ_TOPIC_ID", "42")
+        cfg = Config()
+        assert cfg.hq_topic_id == 42
+
+    def test_hq_topic_id_invalid_raises(self, monkeypatch):
+        monkeypatch.setenv("CCGRAM_HQ_TOPIC_ID", "abc")
+        with pytest.raises(ValueError, match="CCGRAM_HQ_TOPIC_ID"):
+            Config()
+
+    def test_notify_interval_clamped_to_minimum(self, monkeypatch):
+        monkeypatch.setenv("CCGRAM_HQ_NOTIFY_INTERVAL", "2")
+        cfg = Config()
+        assert cfg.hq_notify_interval == 5.0
+
+    def test_notify_interval_zero_disables(self, monkeypatch):
+        monkeypatch.setenv("CCGRAM_HQ_NOTIFY_INTERVAL", "0")
+        cfg = Config()
+        assert cfg.hq_notify_interval == 0.0
+
+    def test_notify_interval_invalid_raises(self, monkeypatch):
+        monkeypatch.setenv("CCGRAM_HQ_NOTIFY_INTERVAL", "soon")
+        with pytest.raises(ValueError, match="CCGRAM_HQ_NOTIFY_INTERVAL"):
+            Config()
+
+    def test_digest_time_parsed(self, monkeypatch):
+        monkeypatch.setenv("CCGRAM_HQ_DIGEST_TIME", "09:30")
+        cfg = Config()
+        assert cfg.hq_digest_time is not None
+        assert (cfg.hq_digest_time.hour, cfg.hq_digest_time.minute) == (9, 30)
+
+    def test_digest_time_invalid_raises(self, monkeypatch):
+        monkeypatch.setenv("CCGRAM_HQ_DIGEST_TIME", "9am")
+        with pytest.raises(ValueError, match="CCGRAM_HQ_DIGEST_TIME"):
+            Config()

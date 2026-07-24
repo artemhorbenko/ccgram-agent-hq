@@ -86,12 +86,21 @@ _SINGLETON_ALLOWLIST = frozenset(
         "hook_events.py",
         # Agent HQ is a read-only cross-session aggregator: it enumerates
         # thread bindings and display names via thread_router (the same
-        # routing pattern as sessions_dashboard.py) and never mutates.
+        # routing pattern as sessions_dashboard.py). hq_commands also
+        # records the HQ topic's chat_id (set_group_chat_id) so the
+        # notifier can post out-of-band — same pattern as text_handler.
         "hq/hq_commands.py",
+        # The notifier iterates thread bindings and reads group_chat_ids
+        # to route out-of-band notifications to the HQ topic — the same
+        # notification-routing pattern as hook_events.py / rc_probe.py.
+        "hq/notifier.py",
         "hq/summary.py",
         # /tell resolves targets from thread bindings and routes the ack
         # link via thread_router (read-only, same as sessions_dashboard).
         "hq/tell.py",
+        # voice_tell reads display names for the structured preview
+        # (read-only, same as tell.py).
+        "hq/voice_tell.py",
         "interactive/interactive_ui.py",
         "last_reply.py",  # reads thread_router for window/chat resolution in last_command
         "live/pane_callbacks.py",

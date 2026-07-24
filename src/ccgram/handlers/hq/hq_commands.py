@@ -106,6 +106,22 @@ async def _authorized(update: Update) -> bool:
     return False
 
 
+def _record_hq_chat(update: Update, user_id: int) -> None:
+    """Remember the HQ topic's group chat_id for out-of-band posting.
+
+    The notifier and daily digest can only post into the HQ topic once its
+    chat_id is known; commands are the natural recording point (the TEXT
+    and callback paths record it elsewhere, but commands bypass both).
+    """
+    chat = update.effective_chat
+    if (
+        chat is not None
+        and chat.type in ("group", "supergroup")
+        and config.hq_topic_id is not None
+    ):
+        thread_router.set_group_chat_id(user_id, config.hq_topic_id, chat.id)
+
+
 async def _build_view(user_id: int, mode: str) -> tuple[str, InlineKeyboardMarkup]:
     """Build text + keyboard for an HQ view: agents | brief | needs."""
     summaries = await collect_session_summaries(user_id)
@@ -141,6 +157,7 @@ async def _run_view_command(
     user = update.effective_user
     if not user or not update.message:
         return
+    _record_hq_chat(update, user.id)
     text, keyboard = await _build_view(user.id, mode)
     await safe_reply(update.message, text, reply_markup=keyboard)
     log_hq_action(user_id=user.id, command=command)
@@ -174,6 +191,7 @@ async def hq_status_command(
     user = update.effective_user
     if not user or not update.message:
         return
+    _record_hq_chat(update, user.id)
 
     summaries = await collect_session_summaries(user.id)
     counts = {state: 0 for state in STATE_LABELS}
