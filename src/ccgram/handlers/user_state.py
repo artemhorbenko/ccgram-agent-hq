@@ -19,6 +19,10 @@ SEND_ITEMS_KEY = "send_items"
 SEND_WINDOW_ID_KEY = "send_window_id"
 SEND_CWD_KEY = "send_cwd"
 
+# Agent HQ pending /tell instruction awaiting confirmation
+# dict: {"window_id": str, "name": str, "text": str}
+HQ_PENDING_TELL = "_hq_pending_tell"
+
 PANE_RENAME_WINDOW_ID = "_pane_rename_window_id"
 PANE_RENAME_PANE_ID = "_pane_rename_pane_id"
 PANE_RENAME_THREAD_ID = "_pane_rename_thread_id"

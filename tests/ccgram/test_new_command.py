@@ -104,17 +104,25 @@ class TestCommandRegistration:
     def test_start_registered_and_new_is_provider_forwardable(
         self, mock_config: MagicMock
     ) -> None:
+        """``/new`` is registered for Agent HQ but must stay provider-
+        forwardable: outside the HQ topic ``hq_new_command`` delegates to
+        ``forward_command_handler`` (see TestTopicGating in
+        tests/ccgram/handlers/hq/test_hq_commands.py)."""
         mock_config.telegram_bot_token = "fake:token"
         app = create_bot()
 
+        new_handlers = []
         handler_commands: list[str] = []
         for group_handlers in app.handlers.values():
             for handler in group_handlers:
                 if hasattr(handler, "commands"):
                     handler_commands.extend(handler.commands)  # type: ignore[union-attr]
+                    if "new" in handler.commands:  # type: ignore[union-attr]
+                        new_handlers.append(handler)
 
         assert "start" in handler_commands
-        assert "new" not in handler_commands
+        assert len(new_handlers) == 1
+        assert new_handlers[0].callback.__name__ == "hq_new_command"
 
     @patch("ccgram.bot.config")
     def test_start_uses_welcome_command(self, mock_config: MagicMock) -> None:

@@ -113,6 +113,8 @@ class Config:
         else:
             self.group_id = None
 
+        self._init_hq()
+
         # Provider selection
         self.provider_name: str = os.getenv("CCGRAM_PROVIDER", "claude")
 
@@ -181,6 +183,22 @@ class Config:
             len(self.allowed_users),
             self.tmux_session_name,
         )
+
+    def _init_hq(self) -> None:
+        # Agent HQ control-plane topic (optional feature; None = disabled).
+        # When set, the topic with this thread_id becomes the cross-session
+        # dashboard: /agents, /brief, /needs_you, /tell activate there and
+        # the topic is never bound to a window.
+        hq_topic_str = os.getenv("CCGRAM_HQ_TOPIC_ID", "").strip()
+        if hq_topic_str:
+            try:
+                self.hq_topic_id: int | None = int(hq_topic_str)
+            except ValueError as e:
+                raise ValueError(
+                    f"CCGRAM_HQ_TOPIC_ID must be a valid integer: {e}"
+                ) from e
+        else:
+            self.hq_topic_id = None
 
     def _init_live_view(self) -> None:
         self.live_view_interval: int = max(

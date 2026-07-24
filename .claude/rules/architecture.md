@@ -106,7 +106,7 @@ Provider-aware hook support + state-file contracts. Import-light: runs inside ag
 
 ### `handlers/`
 
-Grouped into 14 feature subpackages. Each subpackage `__init__.py` re-exports the public surface; call sites use subpackage-qualified imports. Handlers depend on `TelegramClient` Protocol, not `telegram.Bot`.
+Grouped into 15 feature subpackages. Each subpackage `__init__.py` re-exports the public surface; call sites use subpackage-qualified imports. Handlers depend on `TelegramClient` Protocol, not `telegram.Bot`.
 
 Top-level (constants, leaves, top-level commands):
 
@@ -136,6 +136,14 @@ Top-level (constants, leaves, top-level commands):
 - `menu_sync.py` — provider menu cache + scoped sync (`sync_scoped_provider_menu`, `sync_scoped_menu_for_text_context`, `setup_menu_refresh_job`, LRU helpers, `_build_provider_command_metadata`).
 - `failure_probe.py` — `_capture_command_probe_context`, `_probe_transcript_command_error`, `_spawn_command_failure_probe`.
 - `status_snapshot.py` — `_status_snapshot_probe_offset`, `_maybe_send_status_snapshot`.
+
+`handlers/hq/` — Agent HQ cross-session control plane (feature-flagged by `CCGRAM_HQ_TOPIC_ID`; inert when unset):
+
+- `summary.py` — `SessionSummary` frozen projection + `collect_session_summaries(user_id)` aggregator. Read-only composition of existing layers: thread bindings (`thread_router`), window identity (`window_query`), volatile state (`session_state_ports.live_session_state`), push agent status (`multiplexer.agent_status_cache`). Pure `classify_state()` maps signals → `needs_you`/`dead`/`working`/`done`/`idle` (priority: death → wait_header/blocked → native status → task/activity heuristics); `capture_excerpt()` returns the redacted last meaningful terminal line. No new source of truth, no writes.
+- `render.py` — pure text/keyboard rendering: `render_agents`/`render_brief`/`render_needs_you`, `format_elapsed`, `topic_url` (supergroup deep links), keyboards with Open/Read/Interrupt/Refresh buttons.
+- `hq_commands.py` — `/agents`, `/brief`, `/needs_you`, `/hq_status`, `/new` + HQ callbacks (`hq:ref:`, `hq:rd:`, `hq:int:`, `hq:intok:`). Every command delegates to `forward_command_handler` outside the HQ topic (or when disabled), preserving pre-HQ behavior for those command names. `/new` creates a fresh forum topic whose first message runs the existing creation flow. Interrupt is two-step confirmed; Read output posts a redacted terminal tail. `handle_hq_text` + `is_hq_topic` back the guard in `text_handler._handle_unbound_topic` so the HQ topic never binds to a window.
+- `tell.py` — `/tell <agent> <instruction>`: `resolve_agent` (exact → unique prefix → unique substring over clean topic names), confirmation preview via `HQ_PENDING_TELL` user-data key, delivery through `send_to_window` only after explicit confirm (`hq:tok`/`hq:tx`), ownership-checked.
+- `audit.py` — best-effort JSONL audit log (`~/.ccgram/hq_audit.jsonl`) of HQ commands: user, command, target, result.
 
 `handlers/interactive/` — interactive UI prompts:
 

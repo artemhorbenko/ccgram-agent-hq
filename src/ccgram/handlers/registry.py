@@ -33,6 +33,14 @@ from .commands import (
     toolbar_command,
 )
 from .file_handler import handle_document_message, handle_photo_message
+from .hq import (
+    agents_command,
+    brief_command,
+    hq_new_command,
+    hq_status_command,
+    needs_you_command,
+    tell_command,
+)
 from .inline import inline_query_handler, unsupported_content_handler
 from .live import live_command, panes_command, screenshot_command
 from .messaging_pipeline import toolcalls_command, verbose_command
@@ -92,6 +100,14 @@ def register_all(
         CommandSpec("last", last_command),
         CommandSpec("agent", agent_command),
         CommandSpec("provider", agent_command),  # alias
+        # Agent HQ control plane (delegate to provider forward outside the
+        # HQ topic, preserving pre-HQ behavior for these command names)
+        CommandSpec("agents", agents_command),
+        CommandSpec("brief", brief_command),
+        CommandSpec("needs_you", needs_you_command),
+        CommandSpec("tell", tell_command),
+        CommandSpec("new", hq_new_command),
+        CommandSpec("hq_status", hq_status_command),
     ]
 
     for spec in command_specs:
@@ -167,5 +183,11 @@ COMMAND_NAMES: tuple[str, ...] = (
     "last",
     "agent",
     "provider",
+    "agents",
+    "brief",
+    "needs_you",
+    "tell",
+    "new",
+    "hq_status",
 )
 """Sentinel for tests: the exact command names register_all installs, in order."""

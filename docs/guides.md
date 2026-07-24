@@ -192,6 +192,24 @@ All settings accept both CLI flags and environment variables. CLI flags take pre
 | `CCGRAM_TTS_VOICE`                                   | `en-US-EmmaMultilingualNeural` | Voice name                                                                                           |
 | `CCGRAM_TTS_MODEL`                                   | `gpt-4o-mini-tts`              | OpenAI TTS model (only used when `CCGRAM_TTS_PROVIDER=openai`)                                       |
 | `CCGRAM_TTS_API_KEY`                                 | _(empty)_                      | API key for OpenAI TTS; falls back to `OPENAI_API_KEY`                                               |
+| `CCGRAM_HQ_TOPIC_ID`                                 | _(disabled)_                   | Thread ID of the Agent HQ control-plane topic (`/agents`, `/brief`, `/needs_you`, `/tell`)           |
+
+## Agent HQ (cross-session control plane)
+
+Agent HQ turns one forum topic into a dashboard over all your sessions, without changing the topic-per-agent model. It is disabled unless `CCGRAM_HQ_TOPIC_ID` is set to a topic's thread ID (create an "Agent HQ" topic, send any message in it, and read `message_thread_id` from the bot logs — or use a client that shows topic IDs).
+
+Inside the HQ topic:
+
+| Command                     | What it does                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------- |
+| `/agents`                   | All sessions with provider, project, lifecycle state, and time since last activity     |
+| `/brief`                    | Compact summary grouped by state, with a redacted excerpt of each active terminal      |
+| `/needs_you`                | Only blocked / dead / stale sessions, with Open topic, Read output, Interrupt buttons  |
+| `/tell <agent> <text>`      | Route an instruction to a named agent — always shows a confirmation preview first      |
+| `/new [name]`               | Create a fresh topic; its first message runs the normal session-creation flow          |
+| `/hq_status`                | Registry health: session counts by state, multiplexer backend, audit log path          |
+
+Sessions are sorted needs-attention → working → done → idle. Terminal excerpts are passed through the same secret-redaction filter as the shell provider, and every HQ action is appended to `~/.ccgram/hq_audit.jsonl`. Outside the HQ topic these command names behave exactly as before (forwarded to the topic's provider), so the feature is inert when unconfigured. Plain text sent in the HQ topic shows the command help instead of starting the session-binding flow.
 
 ## Topic Emoji Color Scheme
 

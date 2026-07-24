@@ -84,6 +84,14 @@ _SINGLETON_ALLOWLIST = frozenset(
         "commands/menu_sync.py",
         "file_handler.py",
         "hook_events.py",
+        # Agent HQ is a read-only cross-session aggregator: it enumerates
+        # thread bindings and display names via thread_router (the same
+        # routing pattern as sessions_dashboard.py) and never mutates.
+        "hq/hq_commands.py",
+        "hq/summary.py",
+        # /tell resolves targets from thread bindings and routes the ack
+        # link via thread_router (read-only, same as sessions_dashboard).
+        "hq/tell.py",
         "interactive/interactive_ui.py",
         "last_reply.py",  # reads thread_router for window/chat resolution in last_command
         "live/pane_callbacks.py",

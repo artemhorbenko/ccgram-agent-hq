@@ -265,6 +265,14 @@ async def _handle_unbound_topic(
 
     Returns True if the topic is unbound (handled), False if already bound.
     """
+    # Agent HQ control-plane topic — never bind it to a window; show HQ help.
+    # Lazy: hq imports handlers.commands (forward); keep it off this module's load path.
+    from ..hq import handle_hq_text, is_hq_topic
+
+    if is_hq_topic(thread_id):
+        await handle_hq_text(message)
+        return True
+
     window_id = thread_router.get_window_for_thread(user_id, thread_id)
     if window_id is not None:
         return False

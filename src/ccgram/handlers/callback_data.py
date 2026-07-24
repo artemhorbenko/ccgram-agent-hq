@@ -140,5 +140,13 @@ CB_SEND_CANCEL = "sf:x"  # cancel /send browser
 CB_AGENT_SET = "ag:set:"  # ag:set:<window_id>:<provider_or_auto>
 CB_AGENT_CANCEL = "ag:x:"  # ag:x:<window_id>
 
+# Agent HQ control-plane (handlers/hq/)
+CB_HQ_REFRESH = "hq:ref:"  # hq:ref:<agents|brief|needs>
+CB_HQ_READ = "hq:rd:"  # hq:rd:<window_id> \u2014 post redacted terminal tail
+CB_HQ_INTERRUPT = "hq:int:"  # hq:int:<window_id> \u2014 show interrupt confirmation
+CB_HQ_INTERRUPT_CONFIRM = "hq:intok:"  # hq:intok:<window_id> \u2014 send Escape
+CB_HQ_TELL_CONFIRM = "hq:tok"  # confirm pending /tell instruction
+CB_HQ_TELL_CANCEL = "hq:tx"  # discard pending /tell instruction
+
 # Idle status sentinel (shared between status_polling and message_queue)
 IDLE_STATUS_TEXT = "\u2713 Ready"

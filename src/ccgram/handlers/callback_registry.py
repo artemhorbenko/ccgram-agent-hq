@@ -130,6 +130,9 @@ def load_handlers() -> None:
     )
 
     # Lazy: handler subpackage modules import callback_registry for the @register_callback decorator; importing them here at module load would cycle
+    from .hq import hq_commands, tell  # noqa: F401
+
+    # Lazy: handler subpackage modules import callback_registry for the @register_callback decorator; importing them here at module load would cycle
     from .interactive import interactive_callbacks  # noqa: F401
 
     # Lazy: handler subpackage modules import callback_registry for the @register_callback decorator; importing them here at module load would cycle
